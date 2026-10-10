@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Trợ lý ĐGNL Sư phạm</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -347,6 +352,10 @@ input[type="text"]::placeholder { color: var(--muted); }
       keys: ["co so khac", "diem thi khac", "thi o co so khac", "thi o diem khac", "thi o da nang", "thi o tay ninh", "thi o dak lak", "thi o long an", "xet vao co so chinh", "thi o noi khac", "thi tinh khac", "khac diem thi"],
       follow: ["diadiem", "lich"],
       text: "**Được.** Giá trị điểm ở các điểm thi là như nhau, nên thi ở điểm thi nào cũng có thể dùng để xét vào cơ sở chính." },
+    { id: "thinganh", label: "Em thi ngành gì? (tra theo ngành)",
+      keys: ["em thi nganh gi", "thi nganh gi", "nganh nao", "nganh em thi", "tra theo nganh", "chon nganh", "nganh gi"],
+      follow: ["tohop", "nguong"],
+      text: "" },
     { id: "tohop", label: "Tổ hợp và môn thi ĐGNL chuyên biệt",
       keys: ["to hop", "hau to", "mon chinh", "mon thi", "a00", "a01", "d01", "c00", "x01", "chi tieu nganh"],
       follow: ["xettuyen", "nguong"],
@@ -362,7 +371,7 @@ input[type="text"]::placeholder { color: var(--muted); }
     { n: 3, thi: "29–31/5", dk: "20–29/4", kq: "15/6", noi: "Chỉ TP.HCM và Tây Ninh" }
   ];
   var NOTE_2027 = "Lưu ý: do chưa có đề án năm 2027 nên bạn cần cập nhật thêm thông tin từ phía nhà trường.";
-  var CHIPS = ["lich", "phi", "cautruc", "dangky", "xettuyen", "tinhdiem", "tohop", "tudo", "khoahoc"];
+  var CHIPS = ["lich", "phi", "cautruc", "dangky", "xettuyen", "thinganh", "tinhdiem", "tohop", "tudo", "khoahoc"];
 
   // ---------- Tiện ích ----------
   var log = document.getElementById("log");
@@ -530,6 +539,33 @@ input[type="text"]::placeholder { color: var(--muted); }
     return code + " (" + (TH_NAME[base] || "") + "; thi ĐGNL môn " + (MON[suf] || suf) + ")";
   }
   function fmtTN(code) { return code + " (" + (TH_NAME[code] || "") + ")"; }
+  (function () {
+    var e = byId("thinganh");
+    if (!e) return;
+    e.text = "Bạn muốn xét ngành nào? Hãy gõ tên ngành (ví dụ **Sư phạm Toán**, **Tiểu học**, **Mầm non**, **Công nghệ thông tin**). Mình sẽ cho biết chỉ tiêu, tổ hợp thi, ngưỡng đầu vào và điểm trúng tuyển các năm trước nếu có.\nCác ngành ở cơ sở chính có trong bảng của trường:\n" + NG.map(function (r) { return "- " + r[0].replace(/ \(.*\)/, ""); }).join("\n");
+  })();
+  function eqName(a, b) {
+    a = norm(a).trim(); b = norm(b).trim();
+    if (a === b) return true;
+    return /^su pham /.test(a) && /^su pham /.test(b) && a.replace(/ hoc$/, "") === b.replace(/ hoc$/, "");
+  }
+  // Tìm dòng của một ngành trong bảng ngưỡng / điểm trúng tuyển đã có trong KB.
+  function lookupLine(id, name) {
+    var e = byId(id);
+    if (!e) return "";
+    var res = "";
+    e.text.split("\n").forEach(function (line) {
+      var m;
+      if (id === "nguong") {
+        m = line.match(/^- \*\*([^*]+?):\*\* (.*?)\.?$/);
+        if (m && m[2].split(", ").some(function (x) { return eqName(x, name); })) res = m[1];
+      } else {
+        m = line.match(/^- ([^:]+): (.*)$/);
+        if (m && eqName(m[1], name)) res = m[2];
+      }
+    });
+    return res;
+  }
   function ngKeys(r) {
     var name = norm(r[0].replace(/\(.*\)/, "")).trim();
     var keys = [name];
@@ -539,10 +575,10 @@ input[type="text"]::placeholder { color: var(--muted); }
   }
   // Trả lời theo từng ngành hoặc từng tổ hợp. Trả về null nếu câu hỏi không hỏi về tổ hợp/chỉ tiêu.
   function nganhAnswer(q) {
-    var n = " " + norm(q).replace(/\bsp\b/g, "su pham").replace(/\bcntt\b/g, "cong nghe thong tin").replace(/\bkhtn\b/g, "khoa hoc tu nhien") + " ";
+    var n = " " + norm(q).replace(/\bsp\b/g, "su pham").replace(/\bcntt\b/g, "cong nghe thong tin").replace(/\bkhtn\b/g, "khoa hoc tu nhien").replace(/\bsu pham (ly|hoa|sinh|su|dia|van|anh|tin|toan)\b/g, function (m, x) { return "su pham " + ({ ly: "vat ly", hoa: "hoa hoc", sinh: "sinh hoc", su: "lich su", dia: "dia ly", van: "ngu van", anh: "tieng anh", tin: "tin hoc", toan: "toan hoc" })[x]; }) + " ";
     var codes = (n.match(/\b(?:dd2|[abcdmqtx]\d{2})\b/g) || []).map(function (c) { return c.toUpperCase(); });
     var trigger = codes.length > 0 || /to hop|khoi |mon thi|thi mon|mon gi|chi tieu|xet mon|xet nhung|can thi|thi gi|thi nhung/.test(n);
-    if (!trigger) return null;
+    var weak = !trigger;
     var best = null, bestLen = 0;
     NG.forEach(function (r) {
       ngKeys(r).forEach(function (k) {
@@ -550,6 +586,12 @@ input[type="text"]::placeholder { color: var(--muted); }
       });
     });
     var FOLLOW = ["nguong", "diemchuan", "tohop"];
+    if (weak) {
+      if (!best) return null;
+      var rest = n;
+      ngKeys(best).forEach(function (k) { rest = rest.replace(" " + k + " ", " "); });
+      if (/nguong|diem chuan|trung tuyen|hoc phi|le phi|lich|dang ky|khoa hoc|phuong thuc|ho so|thang|dia diem|ket qua|cong thuc|tinh diem/.test(rest) || rest.trim().split(" ").length > 6) return null;
+    }
     if (!best) {
       if (!codes.length) return null;
       var lines = codes.map(function (c) {
@@ -576,6 +618,10 @@ input[type="text"]::placeholder { color: var(--muted); }
       out.push("- **Thi tốt nghiệp THPT:** " + best[4].split(" ").map(fmtTN).join("; "));
       out.push("- **Học bạ THPT kết hợp ĐGNL chuyên biệt:** " + best[3].split(" ").map(fmtHB).join("; "));
     }
+    var nm = best[0].replace(/ \(.*\)/, "");
+    var ng = lookupLine("nguong", nm), dc = lookupLine("diemchuan", nm);
+    if (ng) out.push("- **Ngưỡng đầu vào 2026** (học bạ kết hợp ĐGNL / thi tốt nghiệp THPT): " + ng + " điểm.");
+    if (dc) out.push("- **Điểm trúng tuyển** học bạ kết hợp ĐGNL chuyên biệt (2025 / 2024): " + dc + ".");
     out.push("Hậu tố hai chữ cái của tổ hợp học bạ là môn thi ĐGNL chuyên biệt (môn chính); hai môn còn lại lấy điểm học bạ. Phân hiệu Tây Ninh và Gia Lai có bảng riêng, mình chưa có.");
     return { id: "nganh", label: "Tổ hợp xét tuyển ngành " + best[0].replace(/ \(.*\)/, ""), follow: FOLLOW, text: out.join("\n") };
   }
@@ -646,7 +692,7 @@ input[type="text"]::placeholder { color: var(--muted); }
 
     if (local.id) {
       renderRich(b.bubble, "Mình thấy câu hỏi của bạn gần với mục **" + local.label + "**:\n" + local.text);
-      if (["khoahoc", "y2027", "tudo", "tailieu", "lebao"].indexOf(local.id) < 0) {
+      if (["khoahoc", "y2027", "tudo", "tailieu", "lebao", "thinganh"].indexOf(local.id) < 0) {
         var note = document.createElement("p");
         note.className = "note";
         note.textContent = NOTE_2027;
@@ -711,3 +757,5 @@ input[type="text"]::placeholder { color: var(--muted); }
   })();
 })();
 </script>
+
+</html>
