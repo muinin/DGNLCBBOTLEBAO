@@ -542,7 +542,7 @@ input[type="text"]::placeholder { color: var(--muted); }
   (function () {
     var e = byId("thinganh");
     if (!e) return;
-    e.text = "Bạn muốn xét ngành nào? Hãy gõ tên ngành (ví dụ **Sư phạm Toán**, **Tiểu học**, **Mầm non**, **Công nghệ thông tin**). Mình sẽ cho biết chỉ tiêu, tổ hợp thi, ngưỡng đầu vào và điểm trúng tuyển các năm trước nếu có.\nCác ngành ở cơ sở chính có trong bảng của trường:\n" + NG.map(function (r) { return "- " + r[0].replace(/ \(.*\)/, ""); }).join("\n");
+    e.text = "Bạn muốn xét ngành nào? Hãy gõ tên ngành (ví dụ **Sư phạm Toán**, **Tiểu học**, **Mầm non**, **Công nghệ thông tin**). Mình sẽ cho biết chỉ tiêu, tổ hợp thi, ngưỡng đầu vào và điểm trúng tuyển các năm trước nếu có.\nCác ngành ở cơ sở chính có trong bảng của trường:\n" + NG.map(function (r) { return "- " + r[0]; }).join("\n");
   })();
   function eqName(a, b) {
     a = norm(a).trim(); b = norm(b).trim();
@@ -567,7 +567,7 @@ input[type="text"]::placeholder { color: var(--muted); }
     return res;
   }
   function ngKeys(r) {
-    var name = norm(r[0].replace(/\(.*\)/, "")).trim();
+    var name = norm(r[0].replace(/\(.*\)/, "")).replace(/[^a-z0-9 ]+/g, " ").replace(/ +/g, " ").trim();
     var keys = [name];
     if (/^su pham .* hoc$/.test(name)) keys.push(name.replace(/ hoc$/, ""));
     if (r[5]) r[5].split("|").forEach(function (k) { keys.push(k); });
@@ -575,7 +575,22 @@ input[type="text"]::placeholder { color: var(--muted); }
   }
   // Trả lời theo từng ngành hoặc từng tổ hợp. Trả về null nếu câu hỏi không hỏi về tổ hợp/chỉ tiêu.
   function nganhAnswer(q) {
-    var n = " " + norm(q).replace(/\bsp\b/g, "su pham").replace(/\bcntt\b/g, "cong nghe thong tin").replace(/\bkhtn\b/g, "khoa hoc tu nhien").replace(/\bsu pham (ly|hoa|sinh|su|dia|van|anh|tin|toan)\b/g, function (m, x) { return "su pham " + ({ ly: "vat ly", hoa: "hoa hoc", sinh: "sinh hoc", su: "lich su", dia: "dia ly", van: "ngu van", anh: "tieng anh", tin: "tin hoc", toan: "toan hoc" })[x]; }) + " ";
+    var n = " " + norm(q).replace(/[^a-z0-9 ]+/g, " ").replace(/ +/g, " ").replace(/\bsp\b/g, "su pham").replace(/\bcntt\b/g, "cong nghe thong tin").replace(/\bkhtn\b/g, "khoa hoc tu nhien").replace(/\bsu pham (ly|hoa|sinh|su|dia|van|anh|tin|toan)\b/g, function (m, x) { return "su pham " + ({ ly: "vat ly", hoa: "hoa hoc", sinh: "sinh hoc", su: "lich su", dia: "dia ly", van: "ngu van", anh: "tieng anh", tin: "tin hoc", toan: "toan hoc" })[x]; }) + " ";
+    // Hỏi theo môn: "toán thi được những ngành nào", "thi môn lý xét ngành gì"
+    if (/nganh nao|nhung nganh|thi duoc|xet nganh|nganh gi|nganh nhung|duoc xet|co the vao|vao nganh/.test(n)) {
+      var SUBJ = [["TO", /\b(toan)\b/], ["VA", /\b(van|ngu van)\b/], ["LI", /\b(ly|vat ly|vat li)\b/], ["HO", /\b(hoa|hoa hoc)\b/], ["SI", /\b(sinh|sinh hoc)\b/], ["TA", /\b(anh|tieng anh)\b/]];
+      var sub = null;
+      SUBJ.forEach(function (x) { if (!sub && x[1].test(n)) sub = x[0]; });
+      if (sub && !/su pham|giao duc|cong nghe|ngon ngu/.test(n.replace(/mon (toan|van|ly|hoa|sinh|anh)/, ""))) {
+        var seen = {}, list = [];
+        NG.forEach(function (r) {
+          var cs = ((r[3] || "") + " " + (r[6] || "")).match(/[A-Z]\d{2}(?:TO|VA|LI|HO|SI|TA)\b/g) || [];
+          if (cs.some(function (c) { return c.slice(-2) === sub; }) && !seen[r[0]]) { seen[r[0]] = 1; list.push("- " + r[0] + " (mã " + r[1] + ", chỉ tiêu " + r[2] + ")"); }
+        });
+        if (list.length) return { id: "nganh", label: "Các ngành thi ĐGNL chuyên biệt môn " + MON[sub], follow: ["thinganh", "tohop"],
+          text: "Các ngành ở cơ sở chính có tổ hợp học bạ kết hợp ĐGNL chuyên biệt với môn chính là **" + MON[sub] + "**:\n" + list.join("\n") + "\nBạn hỏi tên một ngành để xem đầy đủ tổ hợp, ngưỡng và điểm trúng tuyển." };
+      }
+    }
     var codes = (n.match(/\b(?:dd2|[abcdmqtx]\d{2})\b/g) || []).map(function (c) { return c.toUpperCase(); });
     var trigger = codes.length > 0 || /to hop|khoi |mon thi|thi mon|mon gi|chi tieu|xet mon|xet nhung|can thi|thi gi|thi nhung/.test(n);
     var weak = !trigger;
@@ -623,7 +638,7 @@ input[type="text"]::placeholder { color: var(--muted); }
     if (ng) out.push("- **Ngưỡng đầu vào 2026** (học bạ kết hợp ĐGNL / thi tốt nghiệp THPT): " + ng + " điểm.");
     if (dc) out.push("- **Điểm trúng tuyển** học bạ kết hợp ĐGNL chuyên biệt (2025 / 2024): " + dc + ".");
     out.push("Hậu tố hai chữ cái của tổ hợp học bạ là môn thi ĐGNL chuyên biệt (môn chính); hai môn còn lại lấy điểm học bạ. Phân hiệu Tây Ninh và Gia Lai có bảng riêng, mình chưa có.");
-    return { id: "nganh", label: "Tổ hợp xét tuyển ngành " + best[0].replace(/ \(.*\)/, ""), follow: FOLLOW, text: out.join("\n") };
+    return { id: "nganh", label: "Tổ hợp xét tuyển ngành " + best[0], follow: FOLLOW, text: out.join("\n") };
   }
 
   // ---------- Luồng hỏi đáp: so khớp với bộ câu hỏi, rồi hỏi bạn thấy phù hợp chưa ----------
