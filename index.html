@@ -577,11 +577,13 @@ input[type="text"]::placeholder { color: var(--muted); }
   function nganhAnswer(q) {
     var n = " " + norm(q).replace(/[^a-z0-9 ]+/g, " ").replace(/ +/g, " ").replace(/\bsp\b/g, "su pham").replace(/\bcntt\b/g, "cong nghe thong tin").replace(/\bkhtn\b/g, "khoa hoc tu nhien").replace(/\bsu pham (ly|hoa|sinh|su|dia|van|anh|tin|toan)\b/g, function (m, x) { return "su pham " + ({ ly: "vat ly", hoa: "hoa hoc", sinh: "sinh hoc", su: "lich su", dia: "dia ly", van: "ngu van", anh: "tieng anh", tin: "tin hoc", toan: "toan hoc" })[x]; }) + " ";
     // Hỏi theo môn: "toán thi được những ngành nào", "thi môn lý xét ngành gì"
-    if (/nganh nao|nhung nganh|thi duoc|xet nganh|nganh gi|nganh nhung|duoc xet|co the vao|vao nganh/.test(n)) {
+    var nSub = n.replace(/\bthi sinh\b/g, " ");
+    var hasNg = NG.some(function (r) { return ngKeys(r).some(function (k) { return k && nSub.indexOf(" " + k + " ") !== -1; }); });
+    if (!hasNg && /nganh/.test(nSub) && /nganh nao|nhung nganh|xet nganh|nganh gi|nganh nhung|duoc xet|co the vao|vao nganh|thi duoc/.test(nSub)) {
       var SUBJ = [["TO", /\b(toan)\b/], ["VA", /\b(van|ngu van)\b/], ["LI", /\b(ly|vat ly|vat li)\b/], ["HO", /\b(hoa|hoa hoc)\b/], ["SI", /\b(sinh|sinh hoc)\b/], ["TA", /\b(anh|tieng anh)\b/]];
       var sub = null;
-      SUBJ.forEach(function (x) { if (!sub && x[1].test(n)) sub = x[0]; });
-      if (sub && !/su pham|giao duc|cong nghe|ngon ngu/.test(n.replace(/mon (toan|van|ly|hoa|sinh|anh)/, ""))) {
+      SUBJ.forEach(function (x) { if (!sub && x[1].test(nSub)) sub = x[0]; });
+      if (sub && !/su pham|giao duc|cong nghe|ngon ngu/.test(nSub.replace(/mon (toan|van|ly|hoa|sinh|anh)/, ""))) {
         var seen = {}, list = [];
         NG.forEach(function (r) {
           var cs = ((r[3] || "") + " " + (r[6] || "")).match(/[A-Z]\d{2}(?:TO|VA|LI|HO|SI|TA)\b/g) || [];
